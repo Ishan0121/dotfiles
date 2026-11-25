@@ -1,0 +1,17 @@
+# /etc/fstab: static file system information.
+#
+# Use 'blkid' to print the universally unique identifier for a device; this may
+# be used with UUID= as a more robust way to name devices that works even if
+# disks are added and removed. See fstab(5).
+#
+# <file system>             <mount point>  <type>  <options>  <dump>  <pass>
+UUID=7603-C28C                            /boot/efi      vfat    defaults,umask=0077 0 2
+UUID=e3af1f8f-a6fa-4a5f-ad56-b7d3538c5262 /              btrfs   subvol=/@,defaults,noatime,compress=zstd 0 0
+UUID=e3af1f8f-a6fa-4a5f-ad56-b7d3538c5262 /home          btrfs   subvol=/@home,defaults,noatime,compress=zstd 0 0
+UUID=e3af1f8f-a6fa-4a5f-ad56-b7d3538c5262 /root          btrfs   subvol=/@root,defaults,noatime,compress=zstd 0 0
+UUID=e3af1f8f-a6fa-4a5f-ad56-b7d3538c5262 /srv           btrfs   subvol=/@srv,defaults,noatime,compress=zstd 0 0
+UUID=e3af1f8f-a6fa-4a5f-ad56-b7d3538c5262 /var/cache     btrfs   subvol=/@cache,defaults,noatime,compress=zstd 0 0
+UUID=e3af1f8f-a6fa-4a5f-ad56-b7d3538c5262 /var/log       btrfs   subvol=/@log,defaults,noatime,compress=zstd 0 0
+UUID=e3af1f8f-a6fa-4a5f-ad56-b7d3538c5262 /var/tmp       btrfs   subvol=/@tmp,defaults,noatime,compress=zstd 0 0
+tmpfs                                     /tmp           tmpfs   defaults,noatime,mode=1777 0 0
+UUID=5ce463f7-fb65-4d77-b0ec-a1b3e4ccec6e /mnt/nexus btrfs defaults,noatime,compress=zstd,nofail 0 0

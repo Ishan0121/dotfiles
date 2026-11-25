@@ -1,0 +1,194 @@
+# ==============================================================================
+# Garuda Linux Dotfiles — Comprehensive Security & Runtime .gitignore
+# ==============================================================================
+# NOTE: Pattern order matters (last match wins). Negations (!*.example) stay at
+# the bottom, and parent directories containing .example files are never ignored.
+
+# --- 1. SSH, GPG, PKI & Keyrings ---
+.ssh/
+.gnupg/
+.pki/
+keyrings/
+nssdb/
+id_*
+*.pem
+*.key
+*.p12
+*.pfx
+*.asc
+*.gpg
+*.kdb
+*.kdbx
+*.keyring
+*.keystore
+
+# --- 2. Secrets, Credentials, API Keys & Tokens ---
+.env
+*.env
+.env.*
+secrets.*
+**/noctalia/secrets.*
+client_secret*
+credential-user-scope
+rclone.conf
+**/opencode/service.json
+.netrc
+.git-credentials
+.authinfo*
+*.secret
+*.token
+*secret*.json
+*secret*.toml
+*secret*.yaml
+*secret*.yml
+*secret*.env
+*secret*.conf
+*secret*.ini
+*secret*.txt
+*credential*.json
+*credential*.toml
+*credential*.yaml
+*credential*.yml
+*credential*.conf
+*credential*.ini
+*credential*.txt
+*credentials*
+*token*.json
+*token*.toml
+*token*.yaml
+*token*.yml
+*token*.conf
+*token*.ini
+*token*.txt
+
+# Broad catch-alls inside stowed/system payloads (avoids matching scripts/check-secrets.sh or tests/test_secrets.sh)
+stow/**/*secret*
+stow/**/*credential*
+stow/**/*token*
+system/**/*secret*
+system/**/*credential*
+system/**/*token*
+
+# --- 3. Browser Profiles, Cookies, Auth DBs & IDE Runtime Databases ---
+*.vscdb
+*.vscdb*
+*.sqlite
+*.sqlite*
+*.db
+*.db-wal
+*.db-shm
+Cookies*
+DIPS*
+Local Storage/
+Session Storage/
+IndexedDB/
+Service Worker/
+globalStorage/
+workspaceStorage/
+History/
+CachedExtensionVSIXs/
+CachedProfilesData/
+Crashpad/
+blob_storage/
+databases/
+shared_proto_db/
+sync/
+machineid
+argv.json
+Singleton*
+TransportSecurity
+Trust Tokens*
+Web Data*
+Login Data*
+Preferences.original
+
+# Browser / IDE binary & profile directories if ever copied accidentally
+google-chrome/
+google-chrome-headless/
+BraveSoftware/
+falkon/
+net.imput.helium/
+torbrowser/
+.vscode/
+.antigravity-ide/
+.vscode-oss/
+.vscode-shared/
+.vscode-oss-shared/
+
+# --- 4. Shell Histories, Completion Dumps & Session Markers ---
+.*_history
+fish_history
+fish_variables
+lesshst
+.wget-hsts
+.zcompdump*
+.zsh_marker_greeting_today
+.zsh_sessions/
+
+# --- 5. Caches, Logs, Build Artifacts, Backups & Temp Files ---
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+*.bak
+*.bak.*
+*.bak[0-9]*
+*.orig
+*.pre-oh-my-zsh
+Cache/
+CachedData/
+GPUCache/
+Code Cache/
+DawnCache/
+GrShaderCache/
+ShaderCache/
+__pycache__/
+*.pyc
+.cache/
+
+# --- 6. Nested .git Repositories & External Dependency Clones ---
+**/.git/
+**/.git
+.oh-my-zsh/
+kitty-themes/
+DankMaterialShell/
+
+# --- 7. Noctalia / Matugen Runtime-Generated Outputs & Machine-Specific Files ---
+# Generic generated theme paths inside stow/ (never ignores noctalia_binds.kdl or noctalia_settings.lua)
+**/themes/noctalia
+**/themes/noctalia.*
+**/themes/Noctalia.theme
+**/themes/matugen.*
+**/colors/noctalia*
+**/colors/matugen*
+stow/**/matugen.lua
+stow/**/matugen.conf
+stow/**/matugen.obt
+stow/**/dank-*.css
+stow/**/dank-*.conf
+stow/**/dank-*.toml
+stow/**/noctalia.rasi
+stow/**/noctalia.tdesktop-theme
+stow/**/noctalia.colors
+
+# App-specific Noctalia runtime outputs & machine-specific generated files
+stow/umbriel/.config/umbriel/noctalia.toml
+stow/umbriel/.config/umbriel/outputs.toml
+stow/hypr/.config/hypr/noctalia.lua
+stow/hypr/.config/hypr/hyprtoolkit.conf
+stow/niri/.config/niri/noctalia.kdl
+stow/gtk/.config/gtk-*/noctalia*
+stow/gtk/.config/gtk-*/dank-colors.css
+stow/yazi/.config/yazi/flavors/noctalia.yazi/
+stow/desktop-extras/.config/fuzzel/themes/noctalia
+stow/desktop-extras/.config/strata/themes/noctalia.toml
+stow/desktop-extras/.config/luciole/colors.toml
+stow/desktop-extras/.config/hyprwhspr/theme/mic-osd.css
+stow/zed/.config/zed/themes/noctalia.json
+
+# --- 8. Explicit Example/Template Allow-List (Must Remain Last) ---
+!*.example
+!secrets.env.example
+!outputs.toml.example

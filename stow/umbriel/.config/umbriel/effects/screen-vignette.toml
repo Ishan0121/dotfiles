@@ -1,0 +1,10 @@
+# Screen Vignette Effect Bundle
+# Subtle edge darkening and vignette shader applied to the display output.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/screen/vignette/effect.toml",
+]
+
+[effects]
+screen = "vignette"

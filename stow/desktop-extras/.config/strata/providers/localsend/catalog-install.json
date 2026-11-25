@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "catalog": "59d587754e9e828bd3eaae3f3114e0ad93b9e695b05cd3561a891275b69bd551",
+  "files": {
+    "LICENSE": "a77ac3ae50970a180c620d1dea7cd04bf2d7c7b4791038a119dd1990edd52c18",
+    "catalog.toml": "5357fc4ea81cdc7665dad0b43cad14f80cad8c24c87d741b94a68602f97a7e11",
+    "messages.json": "9dbff6f5c4e66e18b4600693aaba6c65d616a76da6c8e74b47a77e38b199c07d",
+    "provider.json": "5314645bc91e85bc4dff2789346ab4bd7c5c57fd616133a734c5f20ba4fe5901",
+    "provider.py": "66ea406b3c2eae1e51f360795486ce8a3a937bc0cf315d84b3274775bce5087c"
+  }
+}

@@ -1,0 +1,10 @@
+# Border Pulse Effect Bundle
+# Ambient light spreading and pulsing outward from the active window border.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/border/pulse/effect.toml",
+]
+
+[effects]
+border = "pulse"

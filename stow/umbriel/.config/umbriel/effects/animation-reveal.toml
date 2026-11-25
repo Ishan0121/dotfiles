@@ -1,0 +1,13 @@
+# Window Reveal Animation Effect Bundle
+# Wipe the window in from the left while opening, out to the left while closing.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/animation/reveal/effect.toml",
+]
+
+[animation.windows_in]
+effect = "reveal"
+
+[animation.windows_out]
+effect = "reveal"

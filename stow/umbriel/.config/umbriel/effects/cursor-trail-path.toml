@@ -1,0 +1,10 @@
+# Cursor Trail Path Effect Bundle
+# Two-second curved ribbon tail coloured by each sample's birth phase.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/cursor/trail-path/effect.toml",
+]
+
+[effects]
+cursor = "trail-path"

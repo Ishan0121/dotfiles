@@ -1,0 +1,10 @@
+# Cursor Trail Effect Bundle
+# Noctalia-inspired purple, lavender and moon-yellow tail; fades out over 300 ms.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/cursor/trail/effect.toml",
+]
+
+[effects]
+cursor = "trail"

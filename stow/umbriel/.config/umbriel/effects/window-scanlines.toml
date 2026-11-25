@@ -1,0 +1,10 @@
+# Window Scanlines Effect Bundle
+# CRT scanlines shader applied across window surfaces.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/window/scanlines/effect.toml",
+]
+
+[effects]
+window = "scanlines"

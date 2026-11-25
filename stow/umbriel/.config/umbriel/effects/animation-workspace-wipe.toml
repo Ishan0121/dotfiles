@@ -1,0 +1,11 @@
+# Workspace Wipe Animation Effect Bundle
+# In-place hard wipe transition between workspaces where both workspaces remain live.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/animation/workspace_wipe/effect.toml",
+]
+
+[animation.workspaces]
+style = "reveal"
+effect = "workspace_wipe"

@@ -1,0 +1,10 @@
+# Window Squash Animation Effect Bundle
+# Restrained squash-and-settle physics when moving and resizing windows.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/animation/squash/effect.toml",
+]
+
+[animation.windows_move]
+effect = "squash"

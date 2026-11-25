@@ -1,0 +1,13 @@
+# Example Umbriel display layout (copy to ~/.config/umbriel/outputs.toml or let
+# the Noctalia umbriel-displays plugin generate outputs.toml per machine).
+# Included from config.toml, which must not declare [output.*] of its own:
+# values in an including file override every include.
+
+[output."HDMI-A-1"]
+position = [1920, 0]
+
+[output."DP-1"]
+mode = "1920x1080@60"
+position = [0, 0]
+scale = 1
+tearing = true

@@ -1,0 +1,10 @@
+# Cursor Glow Effect Bundle
+# Soft ambient light pulsing around the cursor.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/cursor/glow/effect.toml",
+]
+
+[effects]
+cursor = "glow"

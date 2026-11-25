@@ -1,0 +1,17 @@
+schema_version = 1
+
+[browser]
+always_show_status_bar = true
+always_show_tab_bar = false
+directories_first = true
+grid_icon_size = 64
+miller_column_width = 180
+miller_show_parents = false
+preview_width = 376
+show_hidden = true
+show_preview = false
+sidebar_width = 160
+sort_by = "modified"
+sort_descending = true
+thumbnail_cache_mib = 512
+view_mode = "grid"

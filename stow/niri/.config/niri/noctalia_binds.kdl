@@ -1,0 +1,63 @@
+// Autostart Noctalia daemon
+spawn-at-startup "noctalia"
+
+binds {
+    // --- Noctalia Settings Translated from Lua ---
+
+    // #"Media & Brightness"
+    // Laptop multimedia keys for volume and LCD brightness (Noctalia)
+    XF86AudioRaiseVolume allow-when-locked=true hotkey-overlay-title="Volume Up" { spawn "noctalia" "msg" "volume-up"; }
+    XF86AudioLowerVolume allow-when-locked=true hotkey-overlay-title="Volume Down" { spawn "noctalia" "msg" "volume-down"; }
+    XF86AudioMute        allow-when-locked=true hotkey-overlay-title="Mute Volume" { spawn "noctalia" "msg" "volume-mute"; }
+    XF86AudioMicMute     allow-when-locked=true hotkey-overlay-title="Mute Microphone" { spawn "noctalia" "msg" "mic-mute"; }
+    XF86MonBrightnessUp  allow-when-locked=true hotkey-overlay-title="Brightness Up" { spawn "noctalia" "msg" "brightness-up"; }
+    XF86MonBrightnessDown allow-when-locked=true hotkey-overlay-title="Brightness Down" { spawn "noctalia" "msg" "brightness-down"; }
+
+    // Media control (Noctalia)
+    XF86AudioNext  allow-when-locked=true hotkey-overlay-title="Media Next" { spawn "noctalia" "msg" "media" "next"; }
+    XF86AudioPause allow-when-locked=true hotkey-overlay-title="Media Pause" { spawn "noctalia" "msg" "media" "toggle"; }
+    XF86AudioPlay  allow-when-locked=true hotkey-overlay-title="Media Play" { spawn "noctalia" "msg" "media" "toggle"; }
+    XF86AudioPrev  allow-when-locked=true hotkey-overlay-title="Media Previous" { spawn "noctalia" "msg" "media" "previous"; }
+    XF86AudioStop  allow-when-locked=true hotkey-overlay-title="Media Stop" { spawn "noctalia" "msg" "media" "stop"; }
+
+    // #"Noctalia Panels"
+    // Noctalia Panels
+    Mod+V hotkey-overlay-title="Toggle Clipboard History" { spawn "noctalia" "msg" "panel-toggle" "clipboard"; }
+    Alt+Tab hotkey-overlay-title="Window Switcher" { spawn "noctalia" "msg" "window-switcher"; }
+    Mod+Space hotkey-overlay-title="Toggle App Launcher" { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
+    Mod+D hotkey-overlay-title="Toggle App Launcher" { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
+    // Mod+W hotkey-overlay-title="Toggle Wallpaper Picker" { spawn "noctalia" "msg" "panel-toggle" "wallpaper"; }
+    Mod+W hotkey-overlay-title="Toggle Wallpaper Picker" { spawn "noctalia" "msg" "panel-toggle" "ishan0121/wallpaper-deck:picker"; }
+    Mod+Shift+W hotkey-overlay-title="Next Wallpaper" { spawn "noctalia" "msg" "wallpaper-next"; }
+    Mod+Ctrl+W hotkey-overlay-title="Previous Wallpaper" { spawn "noctalia" "msg" "wallpaper-previous"; }
+    // Alt+Tab is already added for window-switcher in config
+    Mod+S hotkey-overlay-title="Toggle Control Center" { spawn "noctalia" "msg" "panel-toggle" "control-center"; }
+    Mod+Shift+S hotkey-overlay-title="Toggle Settings" { spawn "noctalia" "msg" "settings-toggle"; }
+
+    // #"Session & System"
+    // Noctalia Session and System Controls
+    Mod+Alt+L hotkey-overlay-title="Lock Session" { spawn "noctalia" "msg" "session" "lock"; }
+    Mod+Alt+S hotkey-overlay-title="Suspend Session" { spawn "noctalia" "msg" "session" "suspend"; }
+    Mod+Alt+R hotkey-overlay-title="Reboot" { spawn "noctalia" "msg" "session" "reboot"; }
+    Mod+Alt+P hotkey-overlay-title="Shutdown" { spawn "noctalia" "msg" "session" "shutdown"; }
+    Mod+Alt+Q hotkey-overlay-title="Logout" { spawn "noctalia" "msg" "session" "logout"; }
+
+    // #"Quick Toggles"
+    // Noctalia Toggles
+    Mod+Alt+W hotkey-overlay-title="Toggle WiFi" { spawn "noctalia" "msg" "wifi-toggle"; }
+    Mod+Alt+B hotkey-overlay-title="Toggle Bluetooth" { spawn "noctalia" "msg" "bluetooth-toggle"; }
+    Mod+Alt+M hotkey-overlay-title="Mute Microphone" { spawn "noctalia" "msg" "mic-mute"; }
+    Mod+Alt+V hotkey-overlay-title="Mute Volume" { spawn "noctalia" "msg" "volume-mute"; }
+    Mod+Alt+T hotkey-overlay-title="Toggle Theme Mode" { spawn "noctalia" "msg" "theme-mode-toggle"; }
+    Mod+Alt+I hotkey-overlay-title="Toggle Nightlight" { spawn "noctalia" "msg" "nightlight-toggle"; }
+    Mod+Alt+C hotkey-overlay-title="Toggle Caffeine" { spawn "noctalia" "msg" "caffeine-toggle"; }
+    Mod+Alt+D hotkey-overlay-title="Toggle Dock" { spawn "noctalia" "msg" "dock-toggle"; }
+    Mod+Shift+D hotkey-overlay-title="Toggle Desktop Widgets" { spawn "noctalia" "msg" "desktop-widgets-toggle"; }
+    Mod+N hotkey-overlay-title="Clear Active Notification" { spawn "noctalia" "msg" "notification-clear-active"; }
+    Mod+Shift+N hotkey-overlay-title="Toggle DND" { spawn "noctalia" "msg" "notification-dnd-toggle"; }
+
+    // #"Screenshots"
+    // Screenshots
+    Print hotkey-overlay-title="Screenshot Fullscreen" { spawn "noctalia" "msg" "screenshot-fullscreen"; }
+    Mod+Print hotkey-overlay-title="Screenshot Region" { spawn "noctalia" "msg" "screenshot-region"; }
+}

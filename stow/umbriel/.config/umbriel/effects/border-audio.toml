@@ -1,0 +1,10 @@
+# Border Audio Effect Bundle
+# Audio-reactive reactive glow and light on window borders.
+
+[include]
+files = [
+    "/usr/share/umbriel/effects/border/audio/effect.toml",
+]
+
+[effects]
+border = "audio"

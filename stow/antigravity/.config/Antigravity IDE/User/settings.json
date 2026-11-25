@@ -1,0 +1,9 @@
+{
+    "makefile.configureOnOpen": true,
+    "files.autoSave": "afterDelay",
+    "editor.wordWrap": "on",
+    "diffEditor.ignoreTrimWhitespace": false,
+    "python.languageServer": "Default",
+    "workbench.colorTheme": "Tokyo Night Storm",
+    "antigravity.enableInlineDiff": false
+}

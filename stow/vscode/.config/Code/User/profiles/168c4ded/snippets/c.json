@@ -1,0 +1,30 @@
+{
+	"Print to console": {
+		"prefix": "#stdio",
+		"body": [
+			"#include<stdio.h>",
+			"$2"
+		],
+		"description": "Log output to console"
+	}
+}
+{
+	"Print to console": {
+		"prefix": "#math",
+		"body": [
+			"#include<math.h>",
+			"$2"
+		],
+		"description": "Log output to console"
+	}
+}
+{
+	"Print to console": {
+		"prefix": "#conio",
+		"body": [
+			"#include<conio.h>",
+			"$2"
+		],
+		"description": "Log output to console"
+	}
+}
