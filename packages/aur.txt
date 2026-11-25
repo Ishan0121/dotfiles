@@ -1,0 +1,12 @@
+# AUR packages (install with paru or yay)
+# Exported from /tmp/pkg_aur.txt.
+
+antigravity-ide
+appimagelauncher
+eitype
+epic-games-launcher-bin
+staruml
+swash
+tela-circle-icon-theme-nord-git
+voxtype-bin
+win2xcur

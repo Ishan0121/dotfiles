@@ -1,0 +1,17 @@
+# Antigravity IDE extensions (exported via: antigravity-ide --list-extensions)
+
+golang.go
+johnnymorganz.luau-lsp
+llvm-vs-code-extensions.vscode-clangd
+meta.pyrefly
+ms-azuretools.vscode-containers
+ms-azuretools.vscode-docker
+ms-python.debugpy
+ms-python.python
+ms-python.vscode-python-envs
+ms-vscode.makefile-tools
+shopify.ruby-lsp
+sumneko.lua
+tamasfe.even-better-toml
+v1hz.kdl
+vscjava.vscode-gradle

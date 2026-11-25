@@ -1,0 +1,9 @@
+# Non-pacman external git dependencies (managed by scripts/setup-externals.sh)
+# Format: name | target_relative_to_HOME | git_url
+
+oh-my-zsh|.oh-my-zsh|https://github.com/ohmyzsh/ohmyzsh.git
+zsh-autosuggestions|.oh-my-zsh/custom/plugins/zsh-autosuggestions|https://github.com/zsh-users/zsh-autosuggestions.git
+zsh-completions|.oh-my-zsh/custom/plugins/zsh-completions|https://github.com/zsh-users/zsh-completions.git
+zsh-syntax-highlighting|.oh-my-zsh/custom/plugins/zsh-syntax-highlighting|https://github.com/zsh-users/zsh-syntax-highlighting.git
+kitty-themes|.config/kitty/kitty-themes|https://github.com/dexpota/kitty-themes.git
+lazyvim-starter|.config/nvim|https://github.com/LazyVim/starter.git

@@ -1,0 +1,20 @@
+# Development tools, runtimes, containers, and editors
+# Exported selectively from /tmp/pkg_native.txt.
+
+base-devel
+nodejs
+npm
+python-pip
+rustup
+docker
+docker-compose
+podman
+github-cli
+visual-studio-code-bin
+zed
+geany
+meld
+android-sdk-platform-tools
+opencode
+postgresql
+virt-manager-meta
