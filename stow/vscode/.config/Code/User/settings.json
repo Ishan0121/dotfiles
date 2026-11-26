@@ -235,4 +235,10 @@
   "kilo-code.new.agentWorkStyle": "skipped",
   "kilo-code.new.autoApprove.enabled": false,
   "window.menuBarVisibility": "compact",
+  "qt-core.additionalQtPaths": [
+    {
+      "name": "Qt-5.15.19-linux-g++-x86_64_from_PATH",
+      "path": "/usr/bin/qmake",
+    },
+  ],
 }

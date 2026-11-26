@@ -1,42 +1,119 @@
 # Garuda Linux Modular Dotfiles
 
-Modular, GNU Stow-managed user configuration repository stored on the persistent `/mnt/nexus` Btrfs partition (`/mnt/nexus/dotfiles`).
+Modular, [GNU Stow](https://www.gnu.org/software/stow/)-managed Linux configuration repository stored on the persistent `/mnt/nexus` Btrfs partition (`/mnt/nexus/dotfiles`). Designed to keep active desktop, shell, and editor settings portable across **Arch / Garuda** and **Fedora** installs—completely separated from OS caches, temporary files, and private credentials.
 
-## Quick Start
+## Why It's Built This Way
+
+Normally, Linux settings live inside `$HOME` (`~`), mixed together with gigabytes of app caches, runtime state, and secrets. Reinstalling or switching distros wipes or tangles everything. This setup solves that in four ways:
+
+1. **Persistent Storage (`/mnt/nexus`)** — Configs live on a dedicated Btrfs partition mounted at `/mnt/nexus`, keeping them untouched by OS reinstalls or root-subvolume Snapper rollbacks.
+2. **Clean, Modular Packages (`stow/`)** — Active configs (Zsh, Umbriel, Noctalia, Neovim, VS Code, etc.) are separated from optional compositors (Hyprland, Niri) and stripped of caches, databases, and secrets.
+3. **Symlinked Back to `$HOME` via GNU Stow** — Apps still read `~/.config/...` as usual, following symlinks directly into `/mnt/nexus/dotfiles`. Any tweak you make is immediately inside your Git repo.
+4. **Idempotent Bootstrap Scripts (`scripts/`)** — On a fresh Arch, Garuda, or Fedora install, one command checks dependencies, backs up defaults, installs packages, clones external plugins (Oh My Zsh, LazyVim, Kitty themes), and deploys all symlinks.
+
+---
+
+## The Three Folders on `/mnt/nexus`
+
+Only `/mnt/nexus/dotfiles` is tracked in Git. The other two directories stay strictly local on `/mnt/nexus`:
+
+| Path | In Git? | Purpose |
+| --- | --- | --- |
+| `/mnt/nexus/dotfiles` | Yes (Private repo) | Clean, active, portable configs (`stow/`), package lists (`packages/`), automation (`scripts/`), `/etc` reference notes (`system/`), and docs (`docs/`). |
+| `/mnt/nexus/dotfiles-archive` | No (local, `0700`) | Read-only "attic" holding retired configs and old `.bak` files for reference without cluttering Git. |
+| `/mnt/nexus/dotfiles-backups` | No (local) | Timestamped pre-Stow `$HOME` snapshots created by `scripts/backup-restore.sh` for full rollback. |
+
+---
+
+## Prerequisites
+
+- **`git`** and **`stow`** (required)
+  - **Arch / Garuda:** `sudo pacman -S git stow`
+  - **Fedora:** `sudo dnf install git stow`
+- **Optional:** An AUR helper (`paru` or `yay`) on Arch/Garuda if installing AUR packages via `install-packages.sh`.
+
+---
+
+## Fresh Machine Setup (Restore Guide)
+
+### 1. Clone the Repository
+
+Clone your private repository onto your data drive (recommended: `/mnt/nexus/dotfiles`) or `~/dotfiles`:
 
 ```bash
-# 1. Inspect dependencies
-./scripts/check-deps.sh
-
-# 2. Preview the full bootstrap without modifying files
-./scripts/bootstrap.sh --dry-run
-
-# 3. Run full bootstrap (active profile: 20 packages, excludes hypr/niri)
-./scripts/bootstrap.sh
-
-# 4. Or deploy only Stow symlinks after reviewing status
-./scripts/stow-manage.sh status --profile active
-./scripts/stow-manage.sh deploy --profile active
+git clone <your-private-github-repo-url> /mnt/nexus/dotfiles
+cd /mnt/nexus/dotfiles
 ```
 
-## Architecture Overview
+### 2. Preview First (Recommended, Non-Destructive)
 
-- **`stow/`** — 22 independent GNU Stow packages deployed to `$HOME` using `--no-folding` for shared and runtime-mutated directories.
-- **`packages/`** — Categorized package and extension manifests (`common`, `arch`, `fedora`, `development`, `desktop`, `fonts`, `aur`, `external`, `vscode-extensions`, `antigravity-extensions`).
-- **`scripts/`** — Idempotent, `--dry-run`-capable automation for dependency checks, backups, package installation, external git clones, Stow deployment, and secret scanning.
-- **`system/`** — Non-Stow `/etc` reference copies and manual root-required restoration notes (never stowed or auto-written).
-- **`docs/`** — Detailed guides for architecture, packages, profiles/distros, security, troubleshooting, and GUI verification.
-- **`tests/`** — Requirement-driven E2E test suite.
-- **Outside Git on `/mnt/nexus`**:
-  - `/mnt/nexus/dotfiles-backups/` — Pre-Stow `$HOME` backups managed by `scripts/backup-restore.sh`.
-  - `/mnt/nexus/dotfiles-archive/` — `0700`-isolated historical config archive (read-only reference, never tracked in Git).
+```bash
+# Check required and optional tools
+./scripts/check-deps.sh
+
+# Simulate the full bootstrap without modifying any files
+./scripts/bootstrap.sh --dry-run
+```
+
+### 3. Run the Bootstrap
+
+```bash
+# Full bootstrap (active profile: 20 packages, excludes hypr/niri)
+./scripts/bootstrap.sh
+
+# Or include optional Hyprland and Niri configs (22 packages total)
+./scripts/bootstrap.sh --profile all
+```
+
+`bootstrap.sh` runs these 6 steps automatically in order:
+
+| Step | Script | What it does | How to skip |
+| --- | --- | --- | --- |
+| 1 | `check-deps.sh` | Checks that `git`, `stow`, and helper tools are installed | — |
+| 2 | `backup-restore.sh` | Saves a copy of any existing `$HOME` files that would conflict | `--no-backup` |
+| 3 | `install-packages.sh` | Installs apps & fonts from `packages/*.txt` (Arch/Garuda or Fedora) | `--skip-packages` |
+| 4 | `setup-externals.sh` | Clones Oh My Zsh, Zsh plugins, `kitty-themes`, and LazyVim starter | `--skip-externals` |
+| 5 | `stow-manage.sh` | Creates `$HOME` symlinks into `/mnt/nexus/dotfiles` (`--no-folding`) | — |
+| 6 | `check-secrets.sh` | Audits `stow/` and `system/` for accidental secrets or nested `.git` | — |
+
+### 4. Restore Private Secrets & Local Identity
+
+Secrets are never committed to Git:
+
+- **Noctalia secrets:** Copy `stow/noctalia/.config/noctalia/secrets.env.example` to `~/.config/noctalia/secrets.env`, fill in `NOCTALIA_HOTSPOT_PASSWORD` and `NOCTALIA_WALLHAVEN_API_KEY`, then run:
+  ```bash
+  ./scripts/stow-manage.sh deploy --profile active
+  ```
+- **Git identity:** Create `~/.gitconfig.local` with your machine-local `[user]` name/email (included by `stow/git/.gitconfig`).
+- **Keys & remotes:** Restore SSH keys, GPG keys, or `rclone` configs separately from a secure offline backup.
+
+### 5. Optional Extras
+
+- **Editor extensions:** Reinstall VS Code or Antigravity extensions from `packages/vscode-extensions.txt` and `packages/antigravity-extensions.txt`.
+- **System `/etc` tweaks:** Review [system/README.md](./system/README.md) to manually reapply root-owned system configs (`fstab`, `greetd`, `pacman.conf`, `snapper`, etc.) with `sudo` if desired.
+
+---
+
+## Repository Structure
+
+```text
+/mnt/nexus/dotfiles/
+├── stow/        # 22 modular GNU Stow packages (20 active + 2 optional)
+├── packages/    # Categorized distro, AUR, font, external, and IDE extension lists
+├── scripts/     # Idempotent, --dry-run-capable setup, stow, backup, and audit scripts
+├── system/      # Non-Stow /etc reference copies and manual sudo restore notes
+├── docs/        # Architecture, package, profile, security, troubleshooting, and GUI docs
+└── tests/       # 4-tier E2E test suite (run_all.sh)
+```
+
+---
 
 ## Stow Packages (`stow/`)
 
 ### Active Profile (`--profile active`, 20 packages)
 
 | Package | Target Path(s) | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `zsh` | `~/.zshrc` | Oh My Zsh + 3 plugins managed via `setup-externals.sh` |
 | `bash` | `~/.bashrc`, `~/.bash_profile`, `~/.bash_logout`, `~/.profile` | Standard login & interactive Bash setup |
 | `git` | `~/.gitconfig` | Includes `~/.gitconfig.local` for machine-local identity |
@@ -58,48 +135,51 @@ Modular, GNU Stow-managed user configuration repository stored on the persistent
 | `antigravity` | `~/.config/Antigravity IDE/User/` | `settings.json`, `snippets/` (caches/DBs/creds excluded) |
 | `zed` | `~/.config/zed/settings.json` | Zed editor settings (`themes/noctalia.json` gitignored) |
 
-### Optional Profiles (`--profile all`, +2 packages = 22 total)
+### Optional Profile (`--profile all`, +2 packages = 22 total)
 
 | Package | Target Path(s) | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `hypr` | `~/.config/hypr/` | Optional Hyprland session config |
 | `niri` | `~/.config/niri/` | Optional Niri scrollable-tiling compositor config |
 
-## Bootstrap & Script Usage
+---
 
-All scripts under `scripts/` support `--help` and non-destructive `--dry-run`:
+## Which Script Should I Run? (`scripts/`)
 
-```bash
-# Full bootstrap with dry-run
-./scripts/bootstrap.sh --dry-run
+Every script supports `--help`, and any script that changes files supports `--dry-run` so you can preview safely first.
 
-# Bootstrap skipping system packages or external clones
-./scripts/bootstrap.sh --skip-packages --skip-externals
+| When you want to… | Script | Example command |
+| --- | --- | --- |
+| **Set up a brand-new PC** (all 6 steps) | `bootstrap.sh` | `./scripts/bootstrap.sh` *(or `--dry-run` first)* |
+| **Link or unlink configs** without installing apps | `stow-manage.sh` | `./scripts/stow-manage.sh deploy --profile active` |
+| **Check which symlinks** would change | `stow-manage.sh` | `./scripts/stow-manage.sh status --profile active` |
+| **Install apps & fonts** from `packages/*.txt` | `install-packages.sh` | `./scripts/install-packages.sh --distro arch --category common` |
+| **Download Oh My Zsh, LazyVim, Kitty themes** | `setup-externals.sh` | `./scripts/setup-externals.sh` |
+| **Back up or undo** `$HOME` files | `backup-restore.sh` | `./scripts/backup-restore.sh backup` / `list` / `restore <dir>` |
+| **Check required tools** are installed | `check-deps.sh` | `./scripts/check-deps.sh` |
+| **Scan for leaked passwords/keys** before `git push` | `check-secrets.sh` | `./scripts/check-secrets.sh` |
 
-# Stow management
-./scripts/stow-manage.sh status --profile active
-./scripts/stow-manage.sh deploy --profile active
-./scripts/stow-manage.sh restow --profile all
-./scripts/stow-manage.sh undeploy --profile active
+<details>
+<summary>Common script flags &amp; options</summary>
 
-# Install packages (Arch/Garuda or Fedora)
-./scripts/install-packages.sh --dry-run
-./scripts/install-packages.sh --distro arch --category common
+- `bootstrap.sh`: `--profile <active|all>`, `--skip-packages`, `--skip-externals`, `--no-backup`, `--dry-run`
+- `stow-manage.sh`: actions `status | deploy | restow | undeploy`, `--profile <active|all>`, `--force-noctalia-render`, `--dry-run`
+- `install-packages.sh`: `--distro <auto|arch|fedora>`, `--category <common|arch|fedora|development|desktop|fonts|aur|all>`, `--dry-run`
+- `backup-restore.sh`: actions `backup | list | restore <dir>`, `--target <dir>`, `--backup-dir <dir>`, `--dry-run`
 
-# Clone external git dependencies (OMZ, zsh plugins, kitty-themes, LazyVim)
-./scripts/setup-externals.sh --dry-run
+</details>
 
-# Run secret, nested-.git, database, and hardcoded-path audit
-./scripts/check-secrets.sh
-```
+---
 
 ## Noctalia Secrets Handling
 
 `stow/noctalia/.config/noctalia/config.toml` is a sanitized template using placeholders (`REPLACE_WITH_HOTSPOT_PASSWORD` and `REPLACE_WITH_WALLHAVEN_API_KEY`).
 
-1. `stow-manage.sh` ignores `config.toml` when running `stow` (`--ignore='config\.toml'`) so your live config is never overwritten by a symlink.
-2. Copy `stow/noctalia/.config/noctalia/secrets.env.example` to `~/.config/noctalia/secrets.env` (gitignored) and fill in your real values.
-3. On `deploy` or `restow`, `render_noctalia_config` preserves an existing `~/.config/noctalia/config.toml` unless `--force-noctalia-render` is passed; when rendering, it substitutes `NOCTALIA_HOTSPOT_PASSWORD` and `NOCTALIA_WALLHAVEN_API_KEY` and writes `~/.config/noctalia/config.toml` with mode `0600`.
+1. `stow-manage.sh` passes `--ignore='config\.toml'` to `stow` so your live config is never overwritten by a symlink.
+2. Copy `stow/noctalia/.config/noctalia/secrets.env.example` to `~/.config/noctalia/secrets.env` (gitignored) and set `NOCTALIA_HOTSPOT_PASSWORD` and `NOCTALIA_WALLHAVEN_API_KEY`.
+3. On `deploy` or `restow`, `render_noctalia_config` preserves an existing `~/.config/noctalia/config.toml` unless `--force-noctalia-render` is passed; when rendering, it substitutes the environment values and writes `~/.config/noctalia/config.toml` with mode `0600`.
+
+---
 
 ## Backup & Rollback
 
@@ -110,17 +190,29 @@ All scripts under `scripts/` support `--help` and non-destructive `--dry-run`:
 # List available backups under /mnt/nexus/dotfiles-backups
 ./scripts/backup-restore.sh list
 
-# Rollback: undeploy symlinks, then restore a backup directory
+# Rollback: remove symlinks, then restore a saved snapshot
 ./scripts/stow-manage.sh undeploy --profile active
 ./scripts/backup-restore.sh restore /mnt/nexus/dotfiles-backups/<backup-dir>
 ```
 
+---
+
+## Testing
+
+Run the 4-tier E2E test suite (static/secret checks, backup/restore, Stow lifecycle, and bootstrap `--dry-run`):
+
+```bash
+./tests/run_all.sh
+```
+
+---
+
 ## Documentation
 
-- [Architecture](file:///mnt/nexus/dotfiles/docs/architecture.md) — `/mnt/nexus` Btrfs layout, Stow `--no-folding`, and repo layers
-- [Package Classification](file:///mnt/nexus/dotfiles/docs/package-classification.md) — Guide to every `packages/*.txt` manifest
-- [Profiles & Distros](file:///mnt/nexus/dotfiles/docs/profiles-and-distros.md) — Active vs optional compositor profiles and Arch vs Fedora differences
-- [Security](file:///mnt/nexus/dotfiles/docs/security.md) — `.gitignore` layers, Noctalia secrets contract, `check-secrets.sh`, and pre-push checklist
-- [Troubleshooting](file:///mnt/nexus/dotfiles/docs/troubleshooting.md) — Stow conflicts, symlinks, Noctalia runtime files, rollback, and `/etc` recovery
-- [GUI Verification Checklist](file:///mnt/nexus/dotfiles/docs/gui-verification-checklist.md) — Manual Wayland, compositor, terminal, theming, and IDE checks
-- [System `/etc` Reference](file:///mnt/nexus/dotfiles/system/README.md) — Non-Stow `/etc` reference files and manual `sudo` restore steps
+- [Architecture](./docs/architecture.md) — `/mnt/nexus` Btrfs layout, Stow `--no-folding`, and repo layers
+- [Package Classification](./docs/package-classification.md) — Guide to every `packages/*.txt` manifest
+- [Profiles & Distros](./docs/profiles-and-distros.md) — Active vs optional compositor profiles and Arch vs Fedora differences
+- [Security](./docs/security.md) — `.gitignore` layers, Noctalia secrets contract, `check-secrets.sh`, and pre-push checklist
+- [Troubleshooting](./docs/troubleshooting.md) — Stow conflicts, symlinks, Noctalia runtime files, rollback, and `/etc` recovery
+- [GUI Verification Checklist](./docs/gui-verification-checklist.md) — Manual Wayland, compositor, terminal, theming, and IDE checks
+- [System `/etc` Reference](./system/README.md) — Non-Stow `/etc` reference files and manual `sudo` restore steps
