@@ -9,7 +9,7 @@ Normally, Linux settings live inside `$HOME` (`~`), mixed together with gigabyte
 1. **Persistent Storage (`/mnt/nexus`)** — Configs live on a dedicated Btrfs partition mounted at `/mnt/nexus`, keeping them untouched by OS reinstalls or root-subvolume Snapper rollbacks.
 2. **Clean, Modular Packages (`stow/`)** — Active configs (Zsh, Umbriel, Noctalia, Neovim, VS Code, etc.) are separated from optional compositors (Hyprland, Niri) and stripped of caches, databases, and secrets.
 3. **Symlinked Back to `$HOME` via GNU Stow** — Apps still read `~/.config/...` as usual, following symlinks directly into `/mnt/nexus/dotfiles`. Any tweak you make is immediately inside your Git repo.
-4. **Idempotent Bootstrap Scripts (`scripts/`)** — On a fresh Arch, Garuda, or Fedora install, one command checks dependencies, backs up defaults, installs packages, clones external plugins (Oh My Zsh, LazyVim, Kitty themes), and deploys all symlinks.
+4. **Idempotent Bootstrap Scripts (`scripts/`)** — On a fresh Arch, Garuda, or Fedora install, one command checks dependencies, backs up colliding files, interactively selects packages, clones external plugins (Oh My Zsh, LazyVim, Kitty themes), resolves Stow conflicts, and deploys all symlinks.
 
 ---
 
@@ -21,16 +21,19 @@ Only `/mnt/nexus/dotfiles` is tracked in Git. The other two directories stay str
 | --- | --- | --- |
 | `/mnt/nexus/dotfiles` | Yes (Private repo) | Clean, active, portable configs (`stow/`), package lists (`packages/`), automation (`scripts/`), `/etc` reference notes (`system/`), and docs (`docs/`). |
 | `/mnt/nexus/dotfiles-archive` | No (local, `0700`) | Read-only "attic" holding retired configs and old `.bak` files for reference without cluttering Git. |
-| `/mnt/nexus/dotfiles-backups` | No (local) | Timestamped pre-Stow `$HOME` snapshots created by `scripts/backup-restore.sh` for full rollback. |
+| `/mnt/nexus/dotfiles-backups` | No (local) | Timestamped pre-Stow `$HOME` snapshots created by `scripts/backup-restore.sh` and `scripts/stow-manage.sh --resolve-conflicts` for full rollback. |
 
 ---
 
 ## Prerequisites
 
-- **`git`** and **`stow`** (required)
-  - **Arch / Garuda:** `sudo pacman -S git stow`
-  - **Fedora:** `sudo dnf install git stow`
-- **Optional:** An AUR helper (`paru` or `yay`) on Arch/Garuda if installing AUR packages via `install-packages.sh`.
+- **Required tools** (verified by `./scripts/check-deps.sh`): **`git`**, **`stow`**, **`rsync`**, and **`bash`**
+  - **Arch / Garuda:** `sudo pacman -S git stow rsync bash`
+  - **Fedora:** `sudo dnf install git stow rsync bash`
+- **Optional tools:**
+  - An AUR helper (`paru` or `yay`) on Arch / Garuda if installing AUR packages from `packages/aur.txt`.
+  - **`python3`** for rendering `~/.config/noctalia/config.toml` with secrets from `~/.config/noctalia/secrets.env`.
+  - **`fzf`**, **`gum`**, or **`dialog`** for an enhanced interactive package selector (a dependency-free pure-Bash selector is built in as fallback).
 
 ---
 
@@ -58,23 +61,47 @@ cd /mnt/nexus/dotfiles
 ### 3. Run the Bootstrap
 
 ```bash
-# Full bootstrap (active profile: 20 packages, excludes hypr/niri)
+# Interactive bootstrap (active profile: 20 packages, excludes hypr/niri)
 ./scripts/bootstrap.sh
 
-# Or include optional Hyprland and Niri configs (22 packages total)
+# Non-interactive bootstrap accepting all applicable packages
+./scripts/bootstrap.sh --yes
+
+# Include optional Hyprland and Niri configs (22 packages total)
 ./scripts/bootstrap.sh --profile all
 ```
+
+You can also target a custom directory or backup location with `--target <dir>` and `--backup-dir <dir>` (for example, when testing against an isolated temporary directory).
 
 `bootstrap.sh` runs these 6 steps automatically in order:
 
 | Step | Script | What it does | How to skip |
 | --- | --- | --- | --- |
-| 1 | `check-deps.sh` | Checks that `git`, `stow`, and helper tools are installed | — |
-| 2 | `backup-restore.sh` | Saves a copy of any existing `$HOME` files that would conflict | `--no-backup` |
-| 3 | `install-packages.sh` | Installs apps & fonts from `packages/*.txt` (Arch/Garuda or Fedora) | `--skip-packages` |
+| 1 | `check-deps.sh` | Checks that required (`stow`, `git`, `rsync`, `bash`) and optional tools are available | — |
+| 2 | `backup-restore.sh` | Saves a non-destructive copy of existing `$HOME` files that collide with `stow/` | `--no-backup` |
+| 3 | `install-packages.sh` | Interactively selects and installs applicable packages from `packages/*.txt` (or accepts all with `-y`/`--yes`/`--non-interactive` or non-TTY) | `--skip-packages` |
 | 4 | `setup-externals.sh` | Clones Oh My Zsh, Zsh plugins, `kitty-themes`, and LazyVim starter | `--skip-externals` |
-| 5 | `stow-manage.sh` | Creates `$HOME` symlinks into `/mnt/nexus/dotfiles` (`--no-folding`) | — |
+| 5 | `stow-manage.sh` | Runs `deploy --resolve-conflicts`: backs up (unless `--no-backup`) and removes colliding targets, deploys `$HOME` symlinks (`--no-folding`), and renders Noctalia `config.toml` (`0600`) | — |
 | 6 | `check-secrets.sh` | Audits `stow/` and `system/` for accidental secrets or nested `.git` | — |
+
+#### Interactive Package Selection (Step 3)
+
+When `bootstrap.sh` (without `--skip-packages`) or `install-packages.sh` runs in an interactive terminal (`stdin` and `stdout` attached to a TTY) without `-y` / `--yes` / `--non-interactive`:
+
+- Applicable packages from `packages/*.txt` are loaded for the active `--distro` / `--category` (deduplicating shared entries such as `base-devel` while mapping each package to `pacman`, `aur`, or `dnf`).
+- If `fzf`, `gum`, or `dialog` is installed, it is used automatically; otherwise a built-in pure-Bash selector runs with zero external dependencies (override with `DOTFILES_PKG_SELECTOR=auto|bash|fzf|gum|dialog`).
+- In the pure-Bash selector, you can toggle individual items by number, range, or package name (e.g., `1 3-5 neovim`), select all (`a`), deselect all (`n`), re-list (`l`), confirm (`c` or `Enter`), or skip (`q`).
+- Deselecting all packages cleanly skips package installation with exit code `0` (without invoking `sudo`, `pacman`, `dnf`, or requiring `paru`/`yay`).
+- Running with `-y`, `--yes`, `--non-interactive`, or in a non-TTY pipeline bypasses prompting and selects all applicable packages without hanging. Running with `--dry-run` in a TTY still lets you select packages and prints `[DRY-RUN]` commands only for your selection.
+
+#### Automatic Stow Conflict Handling (Step 5)
+
+Fresh Linux installations often include default non-symlink dotfiles (such as `~/.bashrc`, `~/.bash_profile`, `~/.bash_logout`, `~/.profile`) or external files cloned in Step 4 that would cause GNU Stow to abort.
+
+- `bootstrap.sh` invokes `stow-manage.sh deploy --resolve-conflicts` (passing `--no-backup` if `--no-backup` was given) after `setup-externals.sh`.
+- Existing valid Stow symlinks and Noctalia's rendered `~/.config/noctalia/config.toml` are preserved.
+- Colliding regular files, directories, foreign/broken symlinks, and non-directory parent paths are backed up into the session backup snapshot (unless `--no-backup` is set) and removed before `stow --no-folding` runs.
+- Under `--dry-run`, all planned backups, conflict removals, and Stow actions are logged without modifying `--target` or `--backup-dir`.
 
 ### 4. Restore Private Secrets & Local Identity
 
@@ -132,7 +159,7 @@ Secrets are never committed to Git:
 | `desktop-extras` | `~/.config/{fuzzel,strata,luciole,voxtype}` | Launcher, overlay, and voice/desktop utilities |
 | `nvim` | `~/.config/nvim/` | LazyVim user config + `lazy-lock.json` (starter cloned via `setup-externals.sh`) |
 | `vscode` | `~/.config/Code/User/` | `settings.json`, `keybindings.json`, `snippets/`, `profiles/` (caches/DBs excluded) |
-| `antigravity` | `~/.config/Antigravity IDE/User/` | `settings.json`, `snippets/` (caches/DBs/creds excluded) |
+| `antigravity` | `~/.config/Antigravity IDE/User/` | `settings.json` (caches/DBs/creds excluded) |
 | `zed` | `~/.config/zed/settings.json` | Zed editor settings (`themes/noctalia.json` gitignored) |
 
 ### Optional Profile (`--profile all`, +2 packages = 22 total)
@@ -146,11 +173,11 @@ Secrets are never committed to Git:
 
 ## Which Script Should I Run? (`scripts/`)
 
-Every script supports `--help`, and any script that changes files supports `--dry-run` so you can preview safely first.
+Every script supports `-h, --help`, and any script that modifies files supports `--dry-run` so you can preview safely first.
 
 | When you want to… | Script | Example command |
 | --- | --- | --- |
-| **Set up a brand-new PC** (all 6 steps) | `bootstrap.sh` | `./scripts/bootstrap.sh` *(or `--dry-run` first)* |
+| **Set up a brand-new PC** (all 6 steps) | `bootstrap.sh` | `./scripts/bootstrap.sh` *(or `--dry-run` / `--yes`)* |
 | **Link or unlink configs** without installing apps | `stow-manage.sh` | `./scripts/stow-manage.sh deploy --profile active` |
 | **Check which symlinks** would change | `stow-manage.sh` | `./scripts/stow-manage.sh status --profile active` |
 | **Install apps & fonts** from `packages/*.txt` | `install-packages.sh` | `./scripts/install-packages.sh --distro arch --category common` |
@@ -160,12 +187,16 @@ Every script supports `--help`, and any script that changes files supports `--dr
 | **Scan for leaked passwords/keys** before `git push` | `check-secrets.sh` | `./scripts/check-secrets.sh` |
 
 <details>
-<summary>Common script flags &amp; options</summary>
+<summary>All script actions, flags &amp; environment overrides</summary>
 
-- `bootstrap.sh`: `--profile <active|all>`, `--skip-packages`, `--skip-externals`, `--no-backup`, `--dry-run`
-- `stow-manage.sh`: actions `status | deploy | restow | undeploy`, `--profile <active|all>`, `--force-noctalia-render`, `--dry-run`
-- `install-packages.sh`: `--distro <auto|arch|fedora>`, `--category <common|arch|fedora|development|desktop|fonts|aur|all>`, `--dry-run`
-- `backup-restore.sh`: actions `backup | list | restore <dir>`, `--target <dir>`, `--backup-dir <dir>`, `--dry-run`
+- `bootstrap.sh`: `--profile <active|all>`, `--target <dir>`, `--backup-dir <dir>`, `--skip-packages`, `--skip-externals`, `--no-backup`, `-y, --yes, --non-interactive`, `--dry-run`, `-h, --help`
+- `stow-manage.sh`: actions `deploy | undeploy | restow | status`; options `--profile <active|all>`, `--target <dir>`, `--backup-dir <dir>`, `--resolve-conflicts`, `--no-backup`, `--force-noctalia-render`, `--dry-run`, `-h, --help`
+- `install-packages.sh`: `--distro <auto|arch|fedora>`, `--category <common|arch|fedora|development|desktop|fonts|aur|all>`, `-y, --yes, --non-interactive`, `--dry-run`, `-h, --help`
+- `backup-restore.sh`: actions `backup | restore <dir> | list`; options `--target <dir>`, `--backup-dir <dir>`, `--dry-run`, `-h, --help`
+- `setup-externals.sh`: `--target <dir>`, `--dry-run`, `-h, --help`
+- `check-deps.sh`: `-h, --help`
+- `check-secrets.sh`: `--root <dir>`, `-h, --help`
+- Environment variables (`scripts/lib/common.sh` &amp; `install-packages.sh`): `DOTFILES_ROOT`, `STOW_DIR`, `BACKUP_ROOT` (default `/mnt/nexus/dotfiles-backups`), `DRY_RUN` (`0` or `1`), `DOTFILES_PKG_SELECTOR` (`auto|bash|fzf|gum|dialog`, default `auto`)
 
 </details>
 
@@ -199,7 +230,7 @@ Every script supports `--help`, and any script that changes files supports `--dr
 
 ## Testing
 
-Run the 4-tier E2E test suite (static/secret checks, backup/restore, Stow lifecycle, and bootstrap `--dry-run`):
+Run the 4-tier E2E test suite (static/security &amp; README-`--help` flag parity, backup/restore, Stow lifecycle &amp; conflict resolution, bootstrap `--dry-run`, interactive/non-interactive package selection PTY tests, and automatic Stow conflict handling):
 
 ```bash
 ./tests/run_all.sh

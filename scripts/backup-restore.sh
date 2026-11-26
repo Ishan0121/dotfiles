@@ -38,26 +38,103 @@ collect_stow_relpaths() {
   done | sort -u
 }
 
+is_stow_owned_dir_symlink() {
+  local link_path="$1"
+  local rel_sub="$2"
+  local link_raw target_base_canon stow_base_canon rel_dir target_parent_canon expected_rel pkg_dir
+
+  link_raw="$(readlink -- "$link_path" 2>/dev/null || true)"
+  [[ -n "$link_raw" && "$link_raw" != /* ]] || return 1
+
+  target_base_canon="$(realpath -m -- "$TARGET_DIR")"
+  stow_base_canon="$(realpath -m -- "$STOW_DIR")"
+  rel_dir="$(dirname -- "$rel_sub")"
+  if [[ "$rel_dir" == "." ]]; then
+    target_parent_canon="$target_base_canon"
+  else
+    target_parent_canon="${target_base_canon}/${rel_dir}"
+  fi
+
+  for pkg_dir in "${stow_base_canon}"/*; do
+    [[ -d "${pkg_dir}/${rel_sub}" ]] || continue
+    expected_rel="$(realpath -m -s --relative-to="$target_parent_canon" -- "${pkg_dir}/${rel_sub}")"
+    if [[ "$link_raw" == "$expected_rel" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 do_backup() {
   local timestamp dest rel src dst_parent count=0
-  timestamp="$(date +%Y%m%d-%H%M%S)"
-  dest="${BACKUP_DIR}/backup-${timestamp}"
+  local dir_part part sub p ancestor_symlink
+  local -a parts=()
+  local -A backed_up_ancestors=()
 
-  log_info "Preparing backup from ${TARGET_DIR} -> ${dest}"
-  run_cmd mkdir -p "$dest"
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  dest="${DOTFILES_BACKUP_DEST:-${BACKUP_DIR}/backup-${timestamp}}"
+
+  log_info "Checking ${TARGET_DIR} for colliding target files -> ${dest}"
 
   while IFS= read -r rel; do
     [[ -z "$rel" ]] && continue
+
+    # Walk parent components first so a symlinked ancestor directory (e.g. ~/.config/kitty -> foreign_dir)
+    # is backed up as the symlink itself without dereferencing into a partial real directory.
+    ancestor_symlink=0
+    dir_part="$(dirname -- "$rel")"
+    if [[ "$dir_part" != "." ]]; then
+      IFS='/' read -r -a parts <<< "$dir_part"
+      sub=""
+      for part in "${parts[@]}"; do
+        [[ -z "$part" ]] && continue
+        if [[ -z "$sub" ]]; then
+          sub="$part"
+        else
+          sub="${sub}/${part}"
+        fi
+        p="${TARGET_DIR}/${sub}"
+        if [[ -L "$p" ]]; then
+          ancestor_symlink=1
+          if [[ -z "${backed_up_ancestors[$sub]+x}" ]]; then
+            backed_up_ancestors["$sub"]=1
+            if ! is_stow_owned_dir_symlink "$p" "$sub"; then
+              if [[ ! -e "${dest}/${sub}" && ! -L "${dest}/${sub}" ]]; then
+                if [[ "$count" -eq 0 ]]; then
+                  run_cmd mkdir -p -- "$dest"
+                fi
+                dst_parent="$(dirname -- "${dest}/${sub}")"
+                run_cmd mkdir -p -- "$dst_parent"
+                run_cmd cp -aP -- "$p" "${dest}/${sub}"
+                count=$((count + 1))
+              fi
+            fi
+          fi
+          break
+        fi
+      done
+    fi
+    if [[ "$ancestor_symlink" -eq 1 ]]; then
+      continue
+    fi
+
     src="${TARGET_DIR}/${rel}"
     if [[ -e "$src" && ! -L "$src" ]]; then
+      if [[ "$count" -eq 0 ]]; then
+        run_cmd mkdir -p -- "$dest"
+      fi
       dst_parent="$(dirname -- "${dest}/${rel}")"
-      run_cmd mkdir -p "$dst_parent"
-      run_cmd cp -a "$src" "${dest}/${rel}"
+      run_cmd mkdir -p -- "$dst_parent"
+      run_cmd cp -a -- "$src" "${dest}/${rel}"
       count=$((count + 1))
     fi
   done < <(collect_stow_relpaths)
 
-  log_info "Backup complete (${count} item(s)) at ${dest}"
+  if [[ "$count" -eq 0 ]]; then
+    log_info "Backup complete (0 item(s)); no empty backup directory created."
+  else
+    log_info "Backup complete (${count} item(s)) at ${dest}"
+  fi
 }
 
 do_restore() {

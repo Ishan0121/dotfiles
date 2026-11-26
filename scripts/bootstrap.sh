@@ -13,6 +13,7 @@ BACKUP_DIR="$BACKUP_ROOT"
 SKIP_PACKAGES=0
 SKIP_EXTERNALS=0
 NO_BACKUP=0
+YES=0
 
 usage() {
   cat <<'EOF'
@@ -21,20 +22,21 @@ Usage: bootstrap.sh [OPTIONS]
 Orchestrate dotfiles bootstrap:
   1. check-deps.sh
   2. backup-restore.sh backup  (unless --no-backup)
-  3. install-packages.sh       (unless --skip-packages)
+  3. install-packages.sh       (interactive on TTY unless --yes or --skip-packages)
   4. setup-externals.sh        (unless --skip-externals)
-  5. stow-manage.sh deploy
+  5. stow-manage.sh deploy     (--resolve-conflicts; backs up & removes colliding targets)
   6. check-secrets.sh
 
 Options:
-      --profile <active|all>    Stow profile to deploy (default: active)
-      --target <dir>            Target home directory (default: $HOME)
-      --backup-dir <dir>        Backup directory (default: /mnt/nexus/dotfiles-backups)
-      --skip-packages           Skip system/AUR package installation
-      --skip-externals          Skip cloning external git dependencies
-      --no-backup               Skip pre-stow backup
-      --dry-run                 Simulate all mutating steps
-  -h, --help                    Show this help message and exit
+      --profile <active|all>         Stow profile to deploy (default: active)
+      --target <dir>                 Target home directory (default: $HOME)
+      --backup-dir <dir>             Backup directory (default: /mnt/nexus/dotfiles-backups)
+      --skip-packages                Skip system/AUR package installation
+      --skip-externals               Skip cloning external git dependencies
+      --no-backup                    Skip pre-stow and conflict backups
+  -y, --yes, --non-interactive       Accept all applicable packages without prompting
+      --dry-run                      Simulate all mutating steps
+  -h, --help                         Show this help message and exit
 EOF
 }
 
@@ -67,6 +69,10 @@ while [[ $# -gt 0 ]]; do
       NO_BACKUP=1
       shift
       ;;
+    -y|--yes|--non-interactive)
+      YES=1
+      shift
+      ;;
     --dry-run)
       DRY_RUN=1
       export DRY_RUN
@@ -89,6 +95,22 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   dry_args+=(--dry-run)
 fi
 
+pkg_args=()
+if [[ "$YES" -eq 1 ]]; then
+  pkg_args+=(--yes)
+fi
+
+stow_args=(--profile "$PROFILE" --target "$TARGET_DIR" --backup-dir "$BACKUP_DIR" --resolve-conflicts)
+if [[ "$NO_BACKUP" -eq 1 ]]; then
+  stow_args+=(--no-backup)
+else
+  DOTFILES_BACKUP_DEST="${BACKUP_DIR}/backup-$(date +%Y%m%d-%H%M%S)"
+  export DOTFILES_BACKUP_DEST
+fi
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  stow_args+=(--dry-run)
+fi
+
 log_info "Step 1/6: Checking dependencies..."
 "${SCRIPT_DIR}/check-deps.sh"
 
@@ -101,7 +123,7 @@ fi
 
 if [[ "$SKIP_PACKAGES" -eq 0 ]]; then
   log_info "Step 3/6: Installing packages..."
-  "${SCRIPT_DIR}/install-packages.sh" "${dry_args[@]}"
+  "${SCRIPT_DIR}/install-packages.sh" "${dry_args[@]}" "${pkg_args[@]}"
 else
   log_info "Step 3/6: Skipping package installation (--skip-packages)."
 fi
@@ -114,7 +136,7 @@ else
 fi
 
 log_info "Step 5/6: Deploying Stow packages (profile: ${PROFILE})..."
-"${SCRIPT_DIR}/stow-manage.sh" deploy --profile "$PROFILE" --target "$TARGET_DIR" --backup-dir "$BACKUP_DIR" "${dry_args[@]}"
+"${SCRIPT_DIR}/stow-manage.sh" deploy "${stow_args[@]}"
 
 log_info "Step 6/6: Running secret scan..."
 "${SCRIPT_DIR}/check-secrets.sh" --root "$DOTFILES_ROOT"

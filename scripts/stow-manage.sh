@@ -11,6 +11,8 @@ TARGET_DIR="$HOME"
 BACKUP_DIR="$BACKUP_ROOT"
 PROFILE="active"
 FORCE_NOCTALIA_RENDER=0
+RESOLVE_CONFLICTS=0
+NO_BACKUP=0
 ACTION=""
 
 ALL_PACKAGES=(
@@ -33,7 +35,10 @@ Options:
       --profile <active|all>     Profile to manage: active (20 pkgs, excludes hypr/niri)
                                  or all (all 22 pkgs) (default: active)
       --target <dir>             Target home directory (default: $HOME)
-      --backup-dir <dir>         Backup directory reference (default: /mnt/nexus/dotfiles-backups)
+      --backup-dir <dir>         Backup directory (default: /mnt/nexus/dotfiles-backups)
+      --resolve-conflicts        Back up (unless --no-backup) and remove colliding targets
+                                 before deploying or restowing
+      --no-backup                Skip backing up colliding targets when --resolve-conflicts is set
       --force-noctalia-render    Overwrite existing target Noctalia config.toml
       --dry-run                  Simulate stow and file operations without modifying target
   -h, --help                     Show this help message and exit
@@ -50,6 +55,166 @@ get_profile_packages() {
       printf '%s\n' "$pkg"
     fi
   done
+}
+
+declare -A RESOLVED_CONFLICT_PATHS=()
+CONFLICT_BACKUP_DIR=""
+CONFLICT_BACKUP_CREATED=0
+CONFLICTS_HANDLED=0
+
+backup_and_remove_conflict() {
+  local rel="$1"
+  local target="$2"
+  local reason="$3"
+
+  if [[ -n "${RESOLVED_CONFLICT_PATHS[$rel]+x}" ]]; then
+    return 0
+  fi
+  RESOLVED_CONFLICT_PATHS["$rel"]=1
+  CONFLICTS_HANDLED=$((CONFLICTS_HANDLED + 1))
+
+  log_warn "Stow conflict (${reason}): ${target}"
+  if [[ "$NO_BACKUP" -eq 0 ]]; then
+    local backup_item="${CONFLICT_BACKUP_DIR}/${rel}"
+    if [[ ! -e "$backup_item" && ! -L "$backup_item" ]]; then
+      if [[ "$CONFLICT_BACKUP_CREATED" -eq 0 ]]; then
+        run_cmd mkdir -p -- "$CONFLICT_BACKUP_DIR"
+        CONFLICT_BACKUP_CREATED=1
+      fi
+      run_cmd mkdir -p -- "$(dirname -- "$backup_item")"
+      run_cmd cp -aP -- "$target" "$backup_item"
+    fi
+  fi
+
+  if [[ -d "$target" && ! -L "$target" ]]; then
+    run_cmd rm -rf -- "$target"
+  else
+    run_cmd rm -f -- "$target"
+  fi
+}
+
+compute_expected_stow_link() {
+  local rel="$1"
+  local pkg_subpath="$2"
+  local target_base_canon stow_base_canon rel_dir target_parent_canon
+
+  target_base_canon="$(realpath -m -- "$TARGET_DIR")"
+  stow_base_canon="$(realpath -m -- "$STOW_DIR")"
+  rel_dir="$(dirname -- "$rel")"
+  if [[ "$rel_dir" == "." ]]; then
+    target_parent_canon="$target_base_canon"
+  else
+    target_parent_canon="${target_base_canon}/${rel_dir}"
+  fi
+  realpath -m -s --relative-to="$target_parent_canon" -- "${stow_base_canon}/${pkg_subpath}"
+}
+
+is_stow_owned_leaf_symlink() {
+  local target="$1"
+  local pkg="$2"
+  local rel="$3"
+  local link_raw expected_rel
+
+  link_raw="$(readlink -- "$target" 2>/dev/null || true)"
+  [[ -n "$link_raw" && "$link_raw" != /* ]] || return 1
+  expected_rel="$(compute_expected_stow_link "$rel" "${pkg}/${rel}")"
+  [[ "$link_raw" == "$expected_rel" ]]
+}
+
+is_stow_owned_parent_symlink() {
+  local p="$1"
+  local sub="$2"
+  local link_raw expected_rel candidate_pkg
+
+  link_raw="$(readlink -- "$p" 2>/dev/null || true)"
+  [[ -n "$link_raw" && "$link_raw" != /* ]] || return 1
+  for candidate_pkg in "${PACKAGES[@]}"; do
+    [[ -d "${STOW_DIR}/${candidate_pkg}/${sub}" ]] || continue
+    expected_rel="$(compute_expected_stow_link "$sub" "${candidate_pkg}/${sub}")"
+    if [[ "$link_raw" == "$expected_rel" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+resolve_conflicts() {
+  local pkg pkg_dir src_path rel dir_part part sub p target skip_leaf
+  local -a parts=()
+  local timestamp
+
+  timestamp="$(date +%Y%m%d-%H%M%S)"
+  CONFLICT_BACKUP_DIR="${DOTFILES_BACKUP_DEST:-${BACKUP_DIR}/backup-${timestamp}}"
+  CONFLICT_BACKUP_CREATED=0
+  CONFLICTS_HANDLED=0
+  RESOLVED_CONFLICT_PATHS=()
+
+  for pkg in "${PACKAGES[@]}"; do
+    pkg_dir="${STOW_DIR}/${pkg}"
+    [[ -d "$pkg_dir" ]] || continue
+
+    while IFS= read -r -d '' src_path; do
+      rel="${src_path#"${pkg_dir}/"}"
+      [[ -z "$rel" ]] && continue
+
+      # Noctalia config.toml is ignored by stow and managed by render_noctalia_config
+      if [[ "$pkg" == "noctalia" && "$rel" == ".config/noctalia/config.toml" ]]; then
+        continue
+      fi
+
+      # Check intermediate parent directories for non-directory blockers or foreign/absolute symlinks
+      skip_leaf=0
+      dir_part="$(dirname -- "$rel")"
+      if [[ "$dir_part" != "." ]]; then
+        IFS='/' read -r -a parts <<< "$dir_part"
+        sub=""
+        for part in "${parts[@]}"; do
+          [[ -z "$part" ]] && continue
+          if [[ -z "$sub" ]]; then
+            sub="$part"
+          else
+            sub="${sub}/${part}"
+          fi
+          p="${TARGET_DIR}/${sub}"
+          if [[ -e "$p" || -L "$p" ]]; then
+            if [[ ! -d "$p" || -L "$p" ]]; then
+              if [[ -L "$p" ]] && is_stow_owned_parent_symlink "$p" "$sub"; then
+                skip_leaf=1
+                break
+              fi
+              backup_and_remove_conflict "$sub" "$p" "non-directory parent blocking ${rel}"
+              skip_leaf=1
+              break
+            fi
+          fi
+        done
+      fi
+      if [[ "$skip_leaf" -eq 1 ]]; then
+        continue
+      fi
+
+      # Check leaf target path
+      target="${TARGET_DIR}/${rel}"
+      if [[ ! -e "$target" && ! -L "$target" ]]; then
+        continue
+      fi
+
+      if [[ -L "$target" ]]; then
+        if is_stow_owned_leaf_symlink "$target" "$pkg" "$rel"; then
+          continue
+        fi
+        backup_and_remove_conflict "$rel" "$target" "foreign or non-stow symlink"
+      else
+        backup_and_remove_conflict "$rel" "$target" "existing non-symlink target"
+      fi
+    done < <(find "$pkg_dir" -mindepth 1 \( -type f -o -type l \) -print0)
+  done
+
+  if [[ "$CONFLICTS_HANDLED" -eq 0 ]]; then
+    log_info "Pre-stow conflict check: 0 conflicts found."
+  else
+    log_info "Pre-stow conflict resolution handled ${CONFLICTS_HANDLED} conflict(s)."
+  fi
 }
 
 render_noctalia_config() {
@@ -151,6 +316,14 @@ while [[ $# -gt 0 ]]; do
       export BACKUP_ROOT="$BACKUP_DIR"
       shift 2
       ;;
+    --resolve-conflicts)
+      RESOLVE_CONFLICTS=1
+      shift
+      ;;
+    --no-backup)
+      NO_BACKUP=1
+      shift
+      ;;
     --force-noctalia-render)
       FORCE_NOCTALIA_RENDER=1
       shift
@@ -188,6 +361,9 @@ log_info "Action=${ACTION} Profile=${PROFILE} Packages=${#PACKAGES[@]} Target=${
 
 case "$ACTION" in
   deploy)
+    if [[ "$RESOLVE_CONFLICTS" -eq 1 ]]; then
+      resolve_conflicts
+    fi
     for pkg in "${PACKAGES[@]}"; do
       run_stow_for_pkg "" "$pkg"
     done
@@ -199,6 +375,9 @@ case "$ACTION" in
     done
     ;;
   restow)
+    if [[ "$RESOLVE_CONFLICTS" -eq 1 ]]; then
+      resolve_conflicts
+    fi
     for pkg in "${PACKAGES[@]}"; do
       run_stow_for_pkg "-R" "$pkg"
     done

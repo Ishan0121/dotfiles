@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tier 1: Static analysis, shellcheck, secret scanning, and .gitignore spot checks.
+# Tier 1: Static analysis, shellcheck, secret scanning, .gitignore, and README parity checks.
 
 set -euo pipefail
 
@@ -78,5 +78,29 @@ for p in "${tracked_paths[@]}"; do
   fi
 done
 pass "git check-ignore confirmed .example files and check-secrets.sh are not ignored"
+
+# 5. README.md vs --help flag parity across all scripts/*.sh
+readme_file="${REPO_ROOT}/README.md"
+[[ -f "$readme_file" ]] || fail "README.md not found at ${readme_file}"
+
+script_count=0
+for s in "${REPO_ROOT}"/scripts/*.sh; do
+  script_name="$(basename -- "$s")"
+  script_count=$((script_count + 1))
+  grep -qF "$script_name" "$readme_file" \
+    || fail "Script ${script_name} is missing from README.md"
+
+  help_out="$("$s" --help)"
+  while IFS= read -r flag; do
+    [[ -z "$flag" ]] && continue
+    grep -qF -- "$flag" "$readme_file" \
+      || fail "Flag '${flag}' from '${script_name} --help' is missing in README.md"
+  done < <(printf '%s\n' "$help_out" | grep -oE -- '--[a-z0-9-]+' | sort -u)
+done
+
+if grep -E '^\| .antigravity.' "$readme_file" | grep -qF 'snippets/'; then
+  fail "README.md antigravity row falsely mentions snippets/ (absent in stow/antigravity/)"
+fi
+pass "README.md matches --help flags across all ${script_count} script(s) and stow/antigravity contents"
 
 echo "=== Tier 1 Complete ==="
