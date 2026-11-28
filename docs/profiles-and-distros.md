@@ -23,19 +23,19 @@ You can also deploy an optional package individually with Stow if needed:
 stow --no-folding -d /mnt/nexus/dotfiles/stow -t "$HOME" hypr
 ```
 
-## Distro Support (Arch/Garuda vs Fedora)
+## Distro Support (Arch / CachyOS vs Fedora)
 
 `detect_distro()` in `scripts/lib/common.sh` inspects `/etc/os-release` (`ID` and `ID_LIKE`):
 
 - **`arch`** (matches `arch`, `garuda`, `endeavouros`, `manjaro`, `cachyos`):
-  - `install-packages.sh --category all` installs `common.txt`, `arch.txt`, `development.txt`, `desktop.txt`, and `fonts.txt` with `pacman -S --needed --noconfirm`, followed by `aur.txt` via `paru` (or `yay` fallback).
+  - `install-packages.sh --category all` installs `common.txt`, `arch.txt`, `development.txt`, `desktop.txt`, and `fonts.txt` with `pacman -S --needed --noconfirm` (filtering out any packages absent from local sync repos, routing AUR fallbacks to `paru`/`yay`, and skipping unavailable entries cleanly), followed by `aur.txt` via `paru` (or `yay` fallback).
   - Supports `--category` values: `common`, `arch`, `development`, `desktop`, `fonts`, `aur`, `all`.
 - **`fedora`** (matches `fedora`):
   - `install-packages.sh --category all` installs `fedora.txt` with `dnf install -y` (single combined manifest covering CLI, dev toolchains, terminals, and standard Wayland/audio/theming packages).
   - Supports `--category` values: `common`, `fedora`, `all`.
-  - **Note**: Arch/AUR-only packages (`umbriel-git`, `noctalia-git`, `chaotic-*`, `garuda-*`, `snapper-support`, etc.) are not in `fedora.txt` and must be built or installed via COPR/source on Fedora if desired.
+  - **Note**: Arch/AUR-only packages (`umbriel`, `noctalia`, `paru`, `yay`, etc.) are not in `fedora.txt` and must be built or installed via COPR/source on Fedora if desired.
 
 ## Bootstrap Differences
 
-- **Arch / Garuda**: Full parity with `desktop.txt`, `aur.txt`, and `system/etc/` reference configs (`pacman.conf`, `snapper`, `greetd`).
+- **Arch / CachyOS**: Full parity with `desktop.txt`, `aur.txt`, and `system/etc/` reference configs (`pacman.conf`, `snapper`, `greetd`).
 - **Fedora**: Use `./scripts/bootstrap.sh --distro` is not a `bootstrap.sh` flag (auto-detected by `install-packages.sh`), or run `./scripts/install-packages.sh --distro fedora --dry-run` first, then `./scripts/bootstrap.sh --skip-packages` if installing custom Wayland components manually.

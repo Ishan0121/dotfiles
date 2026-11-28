@@ -25,7 +25,7 @@ TMP_BACKUP="$(mktemp -d)"
 TMP_BIN="$(mktemp -d)"
 TMP_DIRS+=("$TMP_HOME" "$TMP_BACKUP" "$TMP_BIN")
 
-# 1. --help on all 7 CLI scripts
+# 1. --help on all 7 CLI scripts and per-app setup scripts
 for script in \
   bootstrap.sh \
   stow-manage.sh \
@@ -33,11 +33,42 @@ for script in \
   backup-restore.sh \
   setup-externals.sh \
   check-deps.sh \
-  check-secrets.sh; do
+  check-secrets.sh \
+  setup/zsh.sh \
+  setup/git.sh \
+  setup/nvim.sh \
+  setup/vscode.sh \
+  setup/antigravity.sh \
+  setup/kitty.sh \
+  setup/voxtype.sh \
+  setup/noctalia-greeter.sh \
+  setup/mpd.sh \
+  setup/ydotool.sh \
+  setup/desktop.sh \
+  setup/docker.sh \
+  setup/podman.sh \
+  setup/rust.sh \
+  setup/postgresql.sh \
+  setup/virt.sh \
+  setup/tailscale.sh \
+  setup/ufw.sh \
+  setup/bluetooth.sh \
+  setup/snapper.sh \
+  setup/paccache.sh; do
   "${SCRIPTS_DIR}/${script}" --help >/dev/null \
     || fail "${script} --help exited non-zero"
 done
-pass "--help succeeded on all 7 scripts"
+pass "--help succeeded on all core and setup scripts"
+
+for setup_script in zsh.sh git.sh nvim.sh kitty.sh voxtype.sh mpd.sh desktop.sh; do
+  "${SCRIPTS_DIR}/setup/${setup_script}" --dry-run --target "$TMP_HOME" >/dev/null \
+    || fail "setup/${setup_script} --dry-run failed"
+done
+for setup_script in vscode.sh antigravity.sh noctalia-greeter.sh ydotool.sh docker.sh podman.sh rust.sh postgresql.sh virt.sh tailscale.sh ufw.sh bluetooth.sh snapper.sh paccache.sh; do
+  "${SCRIPTS_DIR}/setup/${setup_script}" --dry-run >/dev/null \
+    || fail "setup/${setup_script} --dry-run failed"
+done
+pass "All per-app setup scripts succeeded in --dry-run mode"
 
 # 2. check-deps.sh execution
 "${SCRIPTS_DIR}/check-deps.sh" >/dev/null \
@@ -264,13 +295,19 @@ rc, out = run_pty_seq(
         ("Selected (0/", b"a\n", 0.02),
         ("Selected (", b"1\n", 0.02),
         ("Selected (", b"c\n", 0.02),
+        ("Set up zsh (", b"y\n", 0.02),
+        ("Set up desktop (", b"n\n", 0.02),
+        ("Set up kitty (", b"q\n", 0.02),
     ],
     env_overrides=bash_env,
 )
 assert rc == 0, f"bootstrap.sh interactive PTY failed ({rc}): {out}"
 assert "Interactive mode (bash):" in out, f"bootstrap.sh did not trigger pure-Bash selector: {out}"
+assert "Zsh setup complete." in out, f"bootstrap.sh did not run confirmed zsh setup: {out}"
+assert "Skipped desktop." in out, f"bootstrap.sh did not skip declined desktop setup: {out}"
+assert "Stopped per-app setup prompts" in out, f"bootstrap.sh did not stop on 'q': {out}"
 assert "Bootstrap complete!" in out, f"bootstrap.sh did not complete: {out}"
-print("[PASS] R1: bootstrap.sh interactive PTY selection + dry-run succeeded")
+print("[PASS] R1: bootstrap.sh interactive PTY selection + per-app setup prompts + dry-run succeeded")
 
 # 8f. Optional fzf selector Deselect All (Ctrl-D + Enter) if fzf is installed
 if shutil.which("fzf"):
@@ -510,5 +547,98 @@ adv_bdir="$(find "$R2_ADV_BACKUP" -mindepth 1 -maxdepth 1 -type d -name 'backup-
 [[ "$(readlink -- "${adv_bdir}/.config/kitty")" == "$R2_FOREIGN_KITTY" ]] \
   || fail "R2 backup .config/kitty symlink target mismatch"
 pass "R2: bootstrap.sh resolved absolute stow symlink and preserved symlink-to-directory parent in backup"
+
+# 13. Regression: install-packages.sh filters missing pacman repo packages cleanly
+MOCK_ROOT="$(mktemp -d)"
+MOCK_BIN="$(mktemp -d)"
+MOCK_LOG_DIR="$(mktemp -d)"
+TMP_DIRS+=("$MOCK_ROOT" "$MOCK_BIN" "$MOCK_LOG_DIR")
+MOCK_LOG="${MOCK_LOG_DIR}/calls.log"
+
+mkdir -p "${MOCK_ROOT}/packages"
+printf 'valid-repo-pkg\naur-only-pkg\nmissing-pkg\n' > "${MOCK_ROOT}/packages/common.txt"
+printf 'explicit-aur-pkg\nmissing-aur-pkg\n' > "${MOCK_ROOT}/packages/aur.txt"
+for empty_cat in arch development desktop fonts; do
+  : > "${MOCK_ROOT}/packages/${empty_cat}.txt"
+done
+
+cat > "${MOCK_BIN}/pacman" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+  -Ssq)
+    printf 'valid-repo-pkg\n'
+    ;;
+  -Sg)
+    ;;
+  -Sp|-Qq)
+    exit 1
+    ;;
+  -S)
+    printf 'PACMAN:%s\n' "$*" >> "${MOCK_LOG}"
+    ;;
+esac
+EOF
+
+cat > "${MOCK_BIN}/paru" <<'EOF'
+#!/usr/bin/env bash
+case "${1:-}" in
+  -Sia)
+    if [[ "${3:-}" == "aur-only-pkg" ]]; then
+      exit 0
+    fi
+    exit 1
+    ;;
+  -Si)
+    shift
+    [[ "${1:-}" == "--" ]] && shift
+    rc=0
+    for p in "$@"; do
+      case "$p" in
+        explicit-aur-pkg|aur-only-pkg) ;;
+        *)
+          printf "error: package '%s' was not found\n" "$p" >&2
+          rc=1
+          ;;
+      esac
+    done
+    exit "$rc"
+    ;;
+  -S)
+    printf 'PARU:%s\n' "$*" >> "${MOCK_LOG}"
+    ;;
+esac
+EOF
+
+cat > "${MOCK_BIN}/sudo" <<'EOF'
+#!/usr/bin/env bash
+exec "$@"
+EOF
+
+chmod +x "${MOCK_BIN}/pacman" "${MOCK_BIN}/paru" "${MOCK_BIN}/sudo"
+
+filter_out="$(
+  DOTFILES_ROOT="$MOCK_ROOT" \
+  MOCK_LOG="$MOCK_LOG" \
+  PATH="${MOCK_BIN}:${TMP_BIN}" \
+  "${SCRIPTS_DIR}/install-packages.sh" --distro arch --yes 2>&1
+)" || fail "install-packages.sh failed when filtering unavailable pacman packages: ${filter_out}"
+
+grep -qF "PACMAN:-S --needed --noconfirm valid-repo-pkg" "$MOCK_LOG" \
+  || fail "Expected valid-repo-pkg in pacman -S call; got: $(cat "$MOCK_LOG")"
+grep -qF "PARU:-S --needed --noconfirm explicit-aur-pkg aur-only-pkg" "$MOCK_LOG" \
+  || fail "Expected aur-only-pkg routed to paru; got: $(cat "$MOCK_LOG")"
+if grep -qF "missing-pkg" "$MOCK_LOG"; then
+  fail "Unavailable missing-pkg should have been skipped, not installed: $(cat "$MOCK_LOG")"
+fi
+if grep -qF "missing-aur-pkg" "$MOCK_LOG"; then
+  fail "Unavailable missing-aur-pkg should have been skipped, not installed: $(cat "$MOCK_LOG")"
+fi
+[[ "$filter_out" == *"not found in pacman repos; queuing for paru"* ]] \
+  || fail "Expected AUR fallback warning in output: ${filter_out}"
+[[ "$filter_out" == *"not found in pacman repos or AUR; skipping"* ]] \
+  || fail "Expected unavailable package skip warning in output: ${filter_out}"
+[[ "$filter_out" == *"not found in paru repos or AUR; skipping"* ]] \
+  || fail "Expected unavailable AUR package skip warning in output: ${filter_out}"
+pass "install-packages.sh filtered missing repo/AUR packages, routed AUR fallbacks, and skipped unavailable packages"
 
 echo "=== Tier 4 Complete ==="

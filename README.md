@@ -73,7 +73,7 @@ cd /mnt/nexus/dotfiles
 
 You can also target a custom directory or backup location with `--target <dir>` and `--backup-dir <dir>` (for example, when testing against an isolated temporary directory).
 
-`bootstrap.sh` runs these 6 steps automatically in order:
+`bootstrap.sh` runs these 7 steps automatically in order:
 
 | Step | Script | What it does | How to skip |
 | --- | --- | --- | --- |
@@ -83,6 +83,7 @@ You can also target a custom directory or backup location with `--target <dir>` 
 | 4 | `setup-externals.sh` | Clones Oh My Zsh, Zsh plugins, `kitty-themes`, and LazyVim starter | `--skip-externals` |
 | 5 | `stow-manage.sh` | Runs `deploy --resolve-conflicts`: backs up (unless `--no-backup`) and removes colliding targets, deploys `$HOME` symlinks (`--no-folding`), and renders Noctalia `config.toml` (`0600`) | — |
 | 6 | `check-secrets.sh` | Audits `stow/` and `system/` for accidental secrets or nested `.git` | — |
+| 7 | `scripts/setup/*.sh` | Asks interactively `[y/N/q]` for each app setup script one by one (only on interactive TTY without `--yes`) | `--skip-setup` |
 
 #### Interactive Package Selection (Step 3)
 
@@ -185,17 +186,39 @@ Every script supports `-h, --help`, and any script that modifies files supports 
 | **Back up or undo** `$HOME` files | `backup-restore.sh` | `./scripts/backup-restore.sh backup` / `list` / `restore <dir>` |
 | **Check required tools** are installed | `check-deps.sh` | `./scripts/check-deps.sh` |
 | **Scan for leaked passwords/keys** before `git push` | `check-secrets.sh` | `./scripts/check-secrets.sh` |
+| **Set up individual apps/services** (`zsh`, `git`, `nvim`, `vscode`, `antigravity`, `kitty`, `voxtype`, `noctalia-greeter`, `mpd`, `ydotool`, `desktop`, `docker`, `podman`, `rust`, `postgresql`, `virt`, `tailscale`, `ufw`, `bluetooth`, `snapper`, `paccache`) | `scripts/setup/*.sh` | `./scripts/setup/zsh.sh` *(each supports `--dry-run`)* |
 
 <details>
 <summary>All script actions, flags &amp; environment overrides</summary>
 
-- `bootstrap.sh`: `--profile <active|all>`, `--target <dir>`, `--backup-dir <dir>`, `--skip-packages`, `--skip-externals`, `--no-backup`, `-y, --yes, --non-interactive`, `--dry-run`, `-h, --help`
+- `bootstrap.sh`: `--profile <active|all>`, `--target <dir>`, `--backup-dir <dir>`, `--skip-packages`, `--skip-externals`, `--skip-setup`, `--no-backup`, `-y, --yes, --non-interactive`, `--dry-run`, `-h, --help`
 - `stow-manage.sh`: actions `deploy | undeploy | restow | status`; options `--profile <active|all>`, `--target <dir>`, `--backup-dir <dir>`, `--resolve-conflicts`, `--no-backup`, `--force-noctalia-render`, `--dry-run`, `-h, --help`
 - `install-packages.sh`: `--distro <auto|arch|fedora>`, `--category <common|arch|fedora|development|desktop|fonts|aur|all>`, `-y, --yes, --non-interactive`, `--dry-run`, `-h, --help`
 - `backup-restore.sh`: actions `backup | restore <dir> | list`; options `--target <dir>`, `--backup-dir <dir>`, `--dry-run`, `-h, --help`
 - `setup-externals.sh`: `--target <dir>`, `--dry-run`, `-h, --help`
 - `check-deps.sh`: `-h, --help`
 - `check-secrets.sh`: `--root <dir>`, `-h, --help`
+- `setup/zsh.sh`: `--target <dir>`, `--skip-chsh`, `--dry-run`, `-h, --help`
+- `setup/git.sh`: `--target <dir>`, `--name <name>`, `--email <email>`, `--skip-ssh`, `--dry-run`, `-h, --help`
+- `setup/nvim.sh`: `--target <dir>`, `--dry-run`, `-h, --help`
+- `setup/vscode.sh`: `--dry-run`, `-h, --help`
+- `setup/antigravity.sh`: `--dry-run`, `-h, --help`
+- `setup/kitty.sh`: `--target <dir>`, `--dry-run`, `-h, --help`
+- `setup/voxtype.sh`: `--target <dir>`, `--model <name>` (default `base.en`), `--skip-input-group`, `--dry-run`, `-h, --help`
+- `setup/noctalia-greeter.sh`: `--vt <num|next|current>`, `--session <name>`, `--switch-now`, `--dry-run`, `-h, --help`
+- `setup/mpd.sh`: `--target <dir>`, `--dry-run`, `-h, --help`
+- `setup/ydotool.sh`: `--dry-run`, `-h, --help`
+- `setup/desktop.sh`: `--target <dir>`, `--mode <dark|light>`, `--dry-run`, `-h, --help`
+- `setup/docker.sh`: `--dry-run`, `-h, --help`
+- `setup/podman.sh`: `--dry-run`, `-h, --help`
+- `setup/rust.sh`: `--toolchain <name>`, `--dry-run`, `-h, --help`
+- `setup/postgresql.sh`: `--skip-user`, `--dry-run`, `-h, --help`
+- `setup/virt.sh`: `--dry-run`, `-h, --help`
+- `setup/tailscale.sh`: `--dry-run`, `-h, --help`
+- `setup/ufw.sh`: `--dry-run`, `-h, --help`
+- `setup/bluetooth.sh`: `--dry-run`, `-h, --help`
+- `setup/snapper.sh`: `--enable-timeline`, `--dry-run`, `-h, --help`
+- `setup/paccache.sh`: `--dry-run`, `-h, --help`
 - Environment variables (`scripts/lib/common.sh` &amp; `install-packages.sh`): `DOTFILES_ROOT`, `STOW_DIR`, `BACKUP_ROOT` (default `/mnt/nexus/dotfiles-backups`), `DRY_RUN` (`0` or `1`), `DOTFILES_PKG_SELECTOR` (`auto|bash|fzf|gum|dialog`, default `auto`)
 
 </details>

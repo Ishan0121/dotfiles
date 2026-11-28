@@ -10,11 +10,10 @@ docker
 docker-compose
 podman
 github-cli
-visual-studio-code-bin
 zed
 geany
 meld
-android-sdk-platform-tools
+android-tools
 opencode
 postgresql
-virt-manager-meta
+virt-manager

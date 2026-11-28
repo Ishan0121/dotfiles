@@ -92,8 +92,9 @@ hide_when_typing = true
 history = 10000
 multiplier = 3
 
-[terminal.shell]
-program = "/usr/bin/fish"
+# Follow the user's login shell from /etc/passwd (set via setup/zsh.sh).
+# [terminal.shell]
+# program = "/usr/bin/zsh"
 
 [window]
 decorations = "full"

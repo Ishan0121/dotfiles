@@ -1,24 +1,15 @@
-# Arch / Garuda Linux specific system & pacman packages
-# Exported selectively from /tmp/pkg_native.txt.
+# Arch / CachyOS Linux specific system & pacman packages
+# Portable across Arch and CachyOS (AUR-only packages live in aur.txt).
 
 base-devel
 paru
 yay
 pacman-contrib
-pacseek
 rate-mirrors
 downgrade
-chaotic-keyring
-chaotic-mirrorlist
-snapper-support
-snapper-tools
 btrfs-assistant
 btrfs-progs
+snapper
+snap-pac
 grub-btrfs
-os-prober-btrfs
-garuda-common-settings
-garuda-hooks
-garuda-system-maintenance
-garuda-toolbox
 octopi
-unifetch

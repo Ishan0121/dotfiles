@@ -381,9 +381,6 @@ source = "mic"
 [status]
 icon_theme = "emoji"
 
-[parakeet]
-streaming = false
-
 # Quickshell host frame. Background/border accept semantic color roles,
 # literal CSS colors, or "none".
 # [osd.frame]

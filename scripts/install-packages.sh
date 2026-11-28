@@ -491,8 +491,95 @@ for pkg in "${SELECTED_PKGS[@]}"; do
   esac
 done
 
+resolve_aur_helper() {
+  if command -v paru >/dev/null 2>&1; then
+    printf 'paru\n'
+  elif command -v yay >/dev/null 2>&1; then
+    printf 'yay\n'
+  elif [[ "$DRY_RUN" -eq 1 ]]; then
+    printf 'paru\n'
+  else
+    return 1
+  fi
+}
+
+filter_pacman_packages() {
+  local helper="" pkg line
+  local -A repo_avail=()
+  local -A aur_seen=()
+  local -a resolved_pacman=()
+
+  command -v pacman >/dev/null 2>&1 || return 0
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && repo_avail["$line"]=1
+  done < <(pacman -Ssq 2>/dev/null || true; pacman -Sg 2>/dev/null || true)
+
+  # Skip pre-filtering if sync databases are not initialized yet.
+  if [[ ${#repo_avail[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  helper="$(resolve_aur_helper 2>/dev/null || true)"
+  for pkg in "${AUR_PKGS[@]}"; do
+    aur_seen["$pkg"]=1
+  done
+
+  for pkg in "${PACMAN_PKGS[@]}"; do
+    if [[ -n "${repo_avail[$pkg]+x}" ]] || pacman -Sp -- "$pkg" >/dev/null 2>&1; then
+      resolved_pacman+=("$pkg")
+    elif pacman -Qq -- "$pkg" >/dev/null 2>&1; then
+      log_info "Package '${pkg}' is not in sync repos but is already installed locally; skipping."
+    elif [[ -n "$helper" ]] && "$helper" -Sia -- "$pkg" >/dev/null 2>&1; then
+      log_warn "Package '${pkg}' not found in pacman repos; queuing for ${helper}."
+      if [[ -z "${aur_seen[$pkg]+x}" ]]; then
+        AUR_PKGS+=("$pkg")
+        aur_seen["$pkg"]=1
+      fi
+    else
+      log_warn "Package '${pkg}' not found in pacman repos${helper:+ or AUR}; skipping."
+    fi
+  done
+
+  PACMAN_PKGS=("${resolved_pacman[@]}")
+}
+
+filter_aur_packages() {
+  local helper="$1"
+  local pkg si_err=""
+  local -a resolved_aur=()
+
+  if si_err="$("$helper" -Si -- "${AUR_PKGS[@]}" 2>&1 >/dev/null)"; then
+    return 0
+  fi
+
+  # Only filter individual targets when the helper reports missing package(s),
+  # not on transient network/RPC errors.
+  case "${si_err,,}" in
+    *"not found"*|*"could not find"*)
+      for pkg in "${AUR_PKGS[@]}"; do
+        if "$helper" -Si -- "$pkg" >/dev/null 2>&1; then
+          resolved_aur+=("$pkg")
+        else
+          log_warn "Package '${pkg}' not found in ${helper} repos or AUR; skipping."
+        fi
+      done
+      AUR_PKGS=("${resolved_aur[@]}")
+      ;;
+  esac
+}
+
+if [[ "$DRY_RUN" -eq 0 && ${#PACMAN_PKGS[@]} -gt 0 ]]; then
+  filter_pacman_packages
+fi
+
+declare -a confirm_args=()
+if [[ "$YES" -eq 1 || ! -t 0 || ! -t 1 ]]; then
+  confirm_args+=(--noconfirm)
+fi
+
 if [[ ${#PACMAN_PKGS[@]} -gt 0 ]]; then
-  cmd=(pacman -S --needed --noconfirm "${PACMAN_PKGS[@]}")
+  cmd=(pacman -S --needed "${confirm_args[@]}" "${PACMAN_PKGS[@]}")
   if [[ "$EUID" -ne 0 ]]; then
     cmd=(sudo "${cmd[@]}")
   fi
@@ -502,18 +589,17 @@ fi
 
 if [[ ${#AUR_PKGS[@]} -gt 0 ]]; then
   helper=""
-  if command -v paru >/dev/null 2>&1; then
-    helper="paru"
-  elif command -v yay >/dev/null 2>&1; then
-    helper="yay"
-  elif [[ "$DRY_RUN" -eq 1 ]]; then
-    helper="paru"
-  else
+  if ! helper="$(resolve_aur_helper)"; then
     log_error "Neither paru nor yay is installed for AUR packages."
     exit 1
   fi
-  log_info "Installing ${#AUR_PKGS[@]} AUR package(s) with ${helper}..."
-  run_cmd "$helper" -S --needed --noconfirm "${AUR_PKGS[@]}"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    filter_aur_packages "$helper"
+  fi
+  if [[ ${#AUR_PKGS[@]} -gt 0 ]]; then
+    log_info "Installing ${#AUR_PKGS[@]} AUR package(s) with ${helper}..."
+    run_cmd "$helper" -S --needed "${confirm_args[@]}" "${AUR_PKGS[@]}"
+  fi
 fi
 
 if [[ ${#DNF_PKGS[@]} -gt 0 ]]; then

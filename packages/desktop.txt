@@ -2,8 +2,8 @@
 # Exported selectively from /tmp/pkg_native.txt.
 
 # Active compositor & shell
-umbriel-git
-noctalia-git
+umbriel
+noctalia
 noctalia-greeter
 
 # Optional compositors
@@ -30,12 +30,11 @@ foot
 fuzzel
 wofi
 mako
-waybar-git
-waybar-module-pacman-updates-git
+waybar
 
 # Display, screenshots & clipboard
 wdisplays
-wlr-randr-git
+wlr-randr
 wpaperd
 mpvpaper
 kanshi
@@ -49,8 +48,11 @@ wtype
 ydotool
 
 # Audio & media
-pipewire-support
-pipewire-jack
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-audio
+gst-plugin-pipewire
 wireplumber
 pavucontrol
 pamixer
@@ -62,9 +64,7 @@ haruna
 elisa
 lollypop
 eog
-qimgv-git
 evince
-luciole-git
 
 # Theming & desktop utilities
 matugen
@@ -76,8 +76,6 @@ lxappearance
 adw-gtk-theme
 bibata-cursor-theme
 beautyline
-garuda-icons
-plasma5-themes-sweet-full-git
 polkit-gnome
 gnome-keyring
 nautilus

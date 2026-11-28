@@ -10,3 +10,10 @@ swash
 tela-circle-icon-theme-nord-git
 voxtype-bin
 win2xcur
+pacseek
+unifetch
+visual-studio-code-bin
+waybar-module-pacman-updates-git
+qimgv-git
+luciole-git
+otf-font-awesome-4

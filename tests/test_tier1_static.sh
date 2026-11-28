@@ -24,6 +24,7 @@ shopt -s nullglob
 bash_targets=(
   "${REPO_ROOT}"/scripts/*.sh
   "${REPO_ROOT}"/scripts/lib/*.sh
+  "${REPO_ROOT}"/scripts/setup/*.sh
   "${REPO_ROOT}"/tests/*.sh
 )
 shopt -u nullglob
@@ -84,7 +85,7 @@ readme_file="${REPO_ROOT}/README.md"
 [[ -f "$readme_file" ]] || fail "README.md not found at ${readme_file}"
 
 script_count=0
-for s in "${REPO_ROOT}"/scripts/*.sh; do
+for s in "${REPO_ROOT}"/scripts/*.sh "${REPO_ROOT}"/scripts/setup/*.sh; do
   script_name="$(basename -- "$s")"
   script_count=$((script_count + 1))
   grep -qF "$script_name" "$readme_file" \
